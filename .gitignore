@@ -1,0 +1,16 @@
+## .NET / C#
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal
+*.user
+*.suo
+.vs/
+.idea/
+
+## Node / Frontend
+node_modules/
+dist/
+.env.local
+.env.*.local
