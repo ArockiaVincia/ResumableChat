@@ -56,7 +56,7 @@ http://localhost:5000
 
 ## Run the tests
 
-Run the complete xUnit test suite (16 tests, 0 failures, ~2 seconds run time):
+Run the complete xUnit test suite (34 tests, 0 failures, ~2 seconds run time):
 
 ```powershell
 dotnet test ResumableChat.sln

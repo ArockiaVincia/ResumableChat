@@ -46,8 +46,18 @@ using (var scope = app.Services.CreateScope())
 app.UseCors();
 
 // Serve the functional React client from src/ResumableChat.Client if present
-var clientDir = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "ResumableChat.Client"));
-if (Directory.Exists(clientDir))
+var candidatePaths = new[]
+{
+    Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "ResumableChat.Client")),
+    Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "src", "ResumableChat.Client")),
+    Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "src", "ResumableChat.Client")),
+    Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "ResumableChat.Client")),
+    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "src", "ResumableChat.Client")),
+    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "ResumableChat.Client"))
+};
+
+var clientDir = candidatePaths.FirstOrDefault(p => Directory.Exists(p) && File.Exists(Path.Combine(p, "index.html")));
+if (!string.IsNullOrEmpty(clientDir) && Directory.Exists(clientDir))
 {
     var fileProvider = new PhysicalFileProvider(clientDir);
     app.UseDefaultFiles(new DefaultFilesOptions
@@ -58,6 +68,9 @@ if (Directory.Exists(clientDir))
     {
         FileProvider = fileProvider
     });
+
+    var indexPath = Path.Combine(clientDir, "index.html");
+    app.MapGet("/", () => Results.File(indexPath, "text/html"));
 }
 
 app.MapControllers();

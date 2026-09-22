@@ -35,7 +35,7 @@ Run the complete deterministic test suite:
 dotnet test ResumableChat.sln
 ```
 
-- **16 passing tests**, 0 failures.
+- **34 passing tests**, 0 failures.
 - No external paid APIs or flaky long sleeps.
 
 ---

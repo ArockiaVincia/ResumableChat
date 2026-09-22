@@ -180,6 +180,74 @@ public class ChatStreamingTests : IDisposable
         Assert.Equal(conversation.Id, runDetails.ConversationId);
     }
 
+    [Fact]
+    public async Task SequentialQuestionsInSameConversation_PreservesBothRunsAndHistory()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var chatService = scope.ServiceProvider.GetRequiredService<IChatService>();
+        var repo = scope.ServiceProvider.GetRequiredService<IChatRepository>();
+
+        var conversation = await chatService.CreateConversationAsync();
+
+        // 1. Turn 1: What is React?
+        var req1 = new PostMessageRequest("msg_1", "What is React?", DelayMs: 0);
+        var run1 = await chatService.StartRunAsync(conversation.Id, req1);
+
+        var events1 = new List<ChatEvent>();
+        await foreach (var evt in chatService.StreamRunEventsAsync(run1.Id, afterCursor: 0))
+        {
+            events1.Add(evt);
+        }
+
+        Assert.NotEmpty(events1);
+        Assert.Equal("done", events1.Last().Type);
+        var text1 = string.Concat(events1.Where(e => e.Type == "text").Select(e => e.Text));
+        Assert.Contains("React is a JavaScript library", text1);
+
+        Run? completedRun1 = null;
+        for (int i = 0; i < 50; i++)
+        {
+            completedRun1 = await repo.GetRunAsync(run1.Id);
+            if (completedRun1?.Status == RunStatus.Completed) break;
+            await Task.Delay(20);
+        }
+        Assert.Equal(RunStatus.Completed, completedRun1!.Status);
+
+        // 2. Turn 2: What is .NET Core? (in the same conversation)
+        var req2 = new PostMessageRequest("msg_2", "What is .NET Core?", DelayMs: 0);
+        var run2 = await chatService.StartRunAsync(conversation.Id, req2);
+
+        var events2 = new List<ChatEvent>();
+        await foreach (var evt in chatService.StreamRunEventsAsync(run2.Id, afterCursor: 0))
+        {
+            events2.Add(evt);
+        }
+
+        Assert.NotEmpty(events2);
+        Assert.Equal("done", events2.Last().Type);
+        var text2 = string.Concat(events2.Where(e => e.Type == "text").Select(e => e.Text));
+        Assert.Contains(".NET Core is a cross-platform development framework", text2);
+
+        Run? completedRun2 = null;
+        for (int i = 0; i < 50; i++)
+        {
+            completedRun2 = await repo.GetRunAsync(run2.Id);
+            if (completedRun2?.Status == RunStatus.Completed) break;
+            await Task.Delay(20);
+        }
+        Assert.Equal(RunStatus.Completed, completedRun2!.Status);
+
+        // 3. Both runs exist under the same conversation
+        Assert.NotEqual(run1.Id, run2.Id);
+        Assert.Equal(conversation.Id, completedRun1.ConversationId);
+        Assert.Equal(conversation.Id, completedRun2.ConversationId);
+
+        var dbEvents1 = await repo.GetEventsAsync(run1.Id, 0);
+        var dbEvents2 = await repo.GetEventsAsync(run2.Id, 0);
+        Assert.Equal(events1.Count, dbEvents1.Count);
+        Assert.Equal(events2.Count, dbEvents2.Count);
+    }
+
     public void Dispose()
     {
         _serviceProvider.Dispose();
